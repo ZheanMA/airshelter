@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Map</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      .pac-card {
+        margin: 10px 10px 0 0;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        background-color: #fff;
+        font-family: Roboto;
+      }
+
+      #pac-container {
+        padding-bottom: 12px;
+        margin-right: 12px;
+      }
+
+      .pac-controls {
+        display: inline-block;
+        padding: 5px 11px;
+      }
+
+      .pac-controls label {
+        font-family: Roboto;
+        font-size: 13px;
+        font-weight: 300;
+      }
+
+      #pac-input {
+        background-color: #fff;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 200;
+        margin-top: 10px;
+        margin-left: 12px;
+        padding: 0 11px 0 13px;
+        text-overflow: ellipsis;
+        width: 300px;
+        border: 2px solid #8842d5;
+    	border-radius: 5px; 
+      }
+
+      #pac-input:focus {
+        border-color: #4d90fe;
+      }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="js/jquery.csv.js"></script>
+  </head>
+  <body>
+  	<input id="pac-input" class="controls" type="text" placeholder="Where are you going to camping?">
+<!-- data aquire and extract -->
+    <div id="map"></div>
+    <script>
+      var fire_data;
+      $.ajax({
+          type : "GET",
+          url: "../datasets/vic_fire_data.csv",
+          dataType: "text",
+          async:false,   
+          success: function(response)  
+          {
+            fire_data = $.csv.toObjects(response);
+          }   
+        });
+      var recreation_site;
+      $.ajax({
+          type : "GET",
+          url: "../datasets/recweb_site_with_air_quality.csv",
+          dataType: "text",
+          async:false,   
+          success: function(response)  
+          {
+            recreation_site = $.csv.toObjects(response);
+          }   
+        });
+      console.log(recreation_site)
+      //-----------------------google map api aquire--------------------------
+      var map;
+      function initMap() {
+          map = new google.maps.Map(document.getElementById('map'), {
+            center: {lat: -36.581373, lng: 144.863053},
+            zoom: 7
+          });
+          fire_latLng=[]
+          fire_data.forEach(function(d){
+            var lat = d.latitude;
+            var lng = d.longitude;
+            fire_latLng.push(new google.maps.LatLng(lat, lng));
+          });
+          var heatmap = new google.maps.visualization.HeatmapLayer({
+            data: fire_latLng
+          });
+          var gradient = [
+          'rgba(0, 255, 255, 0)',
+          'rgba(127, 0, 63, 1)',
+          'rgba(191, 0, 31, 1)',
+          'rgba(255, 0, 0, 1)'
+        ]
+          heatmap.set('radius', 7);
+          heatmap.set('gradient', gradient);
+          heatmap.setMap(map);
+
+          // recreate_latLng=[]
+           function getCircle() {
+		        return {
+		          path: google.maps.SymbolPath.CIRCLE,
+		          fillColor: 'green',
+		          fillOpacity: .8,
+		          scale: 4,
+		          strokeColor: 'white',
+		          strokeWeight: .5
+		        };
+      		}
+          // recreation_site.forEach(function(d){
+          //   var lat = d.LATITUDE;
+          //   var lng = d.LONGITUDE;
+          //   recreate_latLng.push({"lat":parseFloat(lat),"lng":parseFloat(lng)});
+          // });
+         var infoWindowContent=[]
+        		recreation_site.forEach(function(d){
+            	infoWindowContent.push(['<h3>'+d.NAME+"</h3>"]);
+          });
+        var camping_site_markers = recreation_site.map(function(location) {
+        	site_position = {"lat":parseFloat(location.LATITUDE),"lng":parseFloat(location.LONGITUDE)}
+        	var contentString = '<div id="content">'+
+							      '<div id="siteNotice">'+
+							      '</div>'+
+							      '<h3 id="firstHeading" class="firstHeading">'+location.NAME+'</h3>'+
+							      '<div id="bodyContent">'+
+							      '<p><b>Access Description: </b>'+location.ACCESS_DSC+'</p>'+
+							      '<p><b>Position: </b>'+location.LATITUDE+','+location.LONGITUDE+'</p>'+
+							      '<p><b>Close status: </b>'+location.CLOS_STAT+'</p>'+
+							      '<p><b>Close Reason: </b>'+location.CLOS_DESC+'</p>'+
+							      '<p><b>PM 2.5: </b>'+location.pm25+'</p>'+
+							      '<p><b>PM 10: </b>'+location.pm10+'</p>'+
+							      '</div>'+
+							      '</div>';
+        	var infowindow = new google.maps.InfoWindow({
+			    content: contentString
+			  });
+          	var camping_site_marker = new google.maps.Marker({
+            	position:site_position,
+            	map: map,
+            	icon: getCircle(),
+            	title: location.NAME
+          });
+          	
+          	camping_site_marker.addListener('click', function() {
+				    infowindow.open(map, camping_site_marker);
+				    // map.setZoom(15);
+				    // var cityCircle = new google.maps.Circle({
+			     //        strokeColor: '#FF0000',
+			     //        strokeOpacity: 0.4,
+			     //        strokeWeight: 2,
+			     //        fillColor: '#FF0000',
+			     //        fillOpacity: 0.35,
+			     //        map: map,
+			     //        center: {"lat":parseFloat(location.LATITUDE),"lng":parseFloat(location.LONGITUDE)},
+			     //        radius: 5000
+			     //      });
+				});
+          	return camping_site_marker
+        });	
+
+
+        var markerCluster = new MarkerClusterer(map, camping_site_markers,
+            {imagePath: '/marker/marker'});
+
+
+         // Create the search box and link it to the UI element.
+        var input = document.getElementById('pac-input');
+        var searchBox = new google.maps.places.SearchBox(input);
+        map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+
+        // Bias the SearchBox results towards current map's viewport.
+        map.addListener('click', function() {
+          markers.forEach(function(marker) {
+            marker.setMap(null);
+          });
+          markers = [];
+        });
+
+        map.addListener('bounds_changed', function() {
+          searchBox.setBounds(map.getBounds());
+        });
+
+        var markers = [];
+        // Listen for the event fired when the user selects a prediction and retrieve
+        // more details for that place.
+        searchBox.addListener('places_changed', function() {
+          var places = searchBox.getPlaces();
+
+          if (places.length == 0) {
+            return;
+          }
+
+          // Clear out the old markers.
+          markers.forEach(function(marker) {
+            marker.setMap(null);
+          });
+          markers = [];
+
+          // For each place, get the icon, name and location.
+          var bounds = new google.maps.LatLngBounds();
+          places.forEach(function(place) {
+            if (!place.geometry) {
+              console.log("Returned place contains no geometry");
+              return;
+            }
+            var icon = {
+              url: place.icon,
+              size: new google.maps.Size(71, 71),
+              origin: new google.maps.Point(0, 0),
+              anchor: new google.maps.Point(17, 34),
+              scaledSize: new google.maps.Size(25, 25)
+            };
+
+            // Create a marker for each place.
+            markers.push(new google.maps.Marker({
+              map: map,
+              icon: icon,
+              title: place.name,
+              position: place.geometry.location,
+            }));
+
+            if (place.geometry.viewport) {
+              // Only geocodes have viewport.
+              bounds.union(place.geometry.viewport);
+            } else {
+              bounds.extend(place.geometry.location);
+            }
+          });
+          map.fitBounds(bounds);
+        });
+
+
+      }
+
+
+      </script>
+		<script src="https://unpkg.com/@google/markerclustererplus@4.0.1/dist/markerclustererplus.min.js"></script>
+      <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAhln26WtzSzywoxlldeG73mqkRvH3c0Y8&libraries=visualization,places&callback=initMap"
+    async defer></script>
+    </body>
+  </html>
