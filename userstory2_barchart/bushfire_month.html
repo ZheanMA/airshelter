@@ -1,0 +1,123 @@
+<!-- Code from d3-graph-gallery.com -->
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+.toolTip {
+  position: absolute;
+  display: none;
+  min-width: 20px;
+  height: auto;
+  background: none repeat scroll 0 0 #ffffff;
+  padding: 5px;
+  text-align: center;
+  border: solid;
+  border-radius: 5px;
+}
+</style>
+<!-- Load d3.js -->
+<script src="https://d3js.org/d3.v4.js"></script>
+
+<!-- Create a div where the graph will take place -->
+<div id="bushfire_recreation_count"></div>
+
+
+<script>
+// set the dimensions and margins of the graph
+var margin = {top: 30, right: 30, bottom: 70, left: 60},
+    width = 800 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+// append the svg object to the body of the page
+var svg = d3.select("#bushfire_recreation_count")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+var tooltip = d3.select("#bushfire_recreation_count").append("div").attr("class", "toolTip");
+
+// Parse the Data
+d3.csv("datasets/fire_history_year_month_day.csv", function(data) {
+	var month_count_data = [];
+	month_list = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+	month_list.forEach(function(d) {
+		var counts = 0;
+	    var key = d;
+	    data.forEach(function(sd){
+			if (key==sd.month){
+			    counts+=1
+			    };
+		 });
+	    var add_data={"Month":key,"fire_counts":counts}
+	    month_count_data.push(add_data)
+	    });
+	
+	// X axis
+	var x = d3.scaleBand()
+	  .range([ 0, width ])
+	  .domain(month_count_data.map(function(d) { return d.Month; }))
+	  .padding(0.2);
+	svg.append("g")
+	  .attr("transform", "translate(0," + height + ")")
+	  .call(d3.axisBottom(x))
+	  .selectAll("text")
+	    .attr("transform", "translate(-10,0)rotate(-45)")
+	    .style("text-anchor", "end");
+	  // text label for the x axis
+  	svg.append("text")             
+      .attr("transform",
+            "translate(" + (width/2) + " ," + 
+                           (height + margin.top + 20) + ")")
+      .style("text-anchor", "middle")
+      .text("Month");
+
+	// Add Y axis
+	var y = d3.scaleLinear()
+	  .domain([0, 16000])
+	  .range([ height, 0]);
+	svg.append("g")
+	  .call(d3.axisLeft(y));
+	// text label for the y axis
+	svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left)
+      .attr("x",0 - (height / 2))
+      .attr("dy", "1em")
+      .style("text-anchor", "middle")
+      .text("The number of fires");      
+	// Bars
+	svg.selectAll("bar")
+	  .data(month_count_data)
+	  .enter()
+	  .append("rect")
+	    .attr("x", function(d) { return x(d.Month); })
+	    .attr("width", x.bandwidth())
+	    .attr("fill", "#8B0000")
+	    .attr("height", function(d) { return height - y(0); }) // always equal to 0
+    	.attr("y", function(d) { return y(0); })
+    	.on("mousemove", function(d){
+    		d3.select(this)
+            	.attr("fill", "red");
+            tooltip
+              .style("left", d3.event.pageX - 30 + "px")
+              .style("top", d3.event.pageY - 40 + "px")
+              .style("display", "inline-block")
+              .html((d.fire_counts));
+        })
+    	.on("mouseout", function(d){ 
+    		d3.select(this)
+    		.attr("fill", "#8B0000");
+    		tooltip
+    			.style("display", "none");});
+	 // Animation
+	svg.selectAll("rect")
+	  .transition()
+	  .duration(800)
+	  .attr("y", function(d) { return y(d.fire_counts); })
+	  .attr("height", function(d) { return height - y(d.fire_counts); })
+	  .delay(function(d,i){return(i*20);})
+})
+	
+</script>
